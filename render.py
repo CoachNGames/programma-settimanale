@@ -21,8 +21,11 @@ async def main(oggi):
     async with async_playwright() as p:
         br = await p.chromium.launch()
         pg = await br.new_page(viewport={"width": 1080, "height": 1920})
+        txt = open(os.path.join(QUI, "programma.txt"), encoding="utf-8").read()
+        await pg.add_init_script("window.PROGRAMMA_TXT = " + json.dumps(txt) + ";")
         await pg.goto(url)
-        await pg.wait_for_timeout(500)
+        await pg.wait_for_function("window.__pronto === true", timeout=15000)
+        await pg.wait_for_timeout(300)
         righe = await pg.evaluate("ROWS")
         for i in range(FPS * DURATA):
             await pg.evaluate(
@@ -43,10 +46,16 @@ async def main(oggi):
     shutil.rmtree(FRAMES)
 
     # testo per Telegram
-    gruppo = 6 if oggi >= 6 else oggi
+    gruppi = sorted({r[3] for r in righe})
+    gruppo = oggi if oggi in gruppi else (6 if oggi == 7 and 6 in gruppi else None)
     blocco = [r[0] for r in righe if r[3] == gruppo and r[2] == "i"]
-    if oggi >= 6:
+    pausa = (not blocco) or any("pausa" in b.lower() for b in blocco)
+    if oggi >= 6 and pausa:
         testo = "🕹️ Weekend di pausa, la settimana è finita!\n\n<b>SEE YOU NEXT WEEK</b> 👋"
+    elif not blocco:
+        testo = f"📅 <b>Oggi, {GIORNI[oggi]}</b>: niente live, ci vediamo al prossimo appuntamento! 👾"
+    elif len(blocco) == 1:
+        testo = f"📅 <b>Oggi, {GIORNI[oggi]}</b>\n🎮 {blocco[0]}"
     else:
         testo = f"📅 <b>Oggi, {GIORNI[oggi]}</b>\n🎮 " + "\n".join(blocco[:-1]) + f"\n⏰ {blocco[-1]}"
     with open(os.path.join(OUT, "info.json"), "w") as f:

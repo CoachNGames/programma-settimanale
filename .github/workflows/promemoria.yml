@@ -1,0 +1,50 @@
+name: Promemoria programma nuovo
+
+on:
+  schedule:
+    # domenica sera (16:35 UTC = 18:35 ora legale / 17:35 ora solare)
+    - cron: "35 16 * * 0"
+  push:
+    paths: ["programma.txt"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  promemoria:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Programma aggiornato → chiudo i promemoria aperti
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for n in $(gh issue list --repo "${{ github.repository }}" --state open --search "Programma della settimana nuova in:title" --json number -q '.[].number'); do
+            gh issue close "$n" --repo "${{ github.repository }}" --comment "Programma aggiornato ✔ Dalla prossima mattina la storia usa quello nuovo."
+          done
+
+      - name: Domenica → se il programma è vecchio apro un promemoria
+        if: github.event_name != 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ultima=$(git log -1 --format=%ct -- programma.txt)
+          giorni=$(( ( $(date +%s) - ultima ) / 86400 ))
+          echo "programma.txt modificato $giorni giorni fa"
+          aperti=$(gh issue list --repo "${{ github.repository }}" --state open --search "Programma della settimana nuova in:title" --json number -q 'length')
+          if [ "$giorni" -ge 5 ] && [ "$aperti" = "0" ]; then
+            gh issue create --repo "${{ github.repository }}" \
+              --title "📅 Programma della settimana nuova?" \
+              --body "Il programma non è stato cambiato da $giorni giorni.
+
+          Se la settimana nuova è diversa, aggiorna **programma.txt**:
+          https://github.com/${{ github.repository }}/edit/main/programma.txt
+
+          Se resta uguale puoi chiudere questo promemoria. Si chiude da solo quando salvi il programma."
+          fi

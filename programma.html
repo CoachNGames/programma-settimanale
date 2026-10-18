@@ -301,14 +301,55 @@ body{display:flex;align-items:center;justify-content:center}
 <script>
 /* ====== CONTENUTO (modificabile) ======
    [testo, top in px, tipo]  tipo: d = giorno (oro), i = riga, hr = divisore */
-var ROWS = [
-  ["LUNEDÌ",392,"d",1],["Valor Mortis",443,"i",1],["H 15 - 19",488,"i",1],[null,528,"hr",1],
-  ["MARTEDÌ",564,"d",2],["Castlevania : Belmont’s Curse",612,"i",2],["H 22.30 - 1.00",657,"i",2],[null,693,"hr",2],
-  ["MERCOLEDÌ",729,"d",3],["#NoSave Retrogaming",774,"i",3],["Finiamo Yoshi’s Island",814,"i",3],["e Valor Mortis",853,"i",3],["H 14 - 19",892,"i",3],[null,918,"hr",3],
-  ["GIOVEDÌ",961,"d",4],["Final Fantasy Resonance",1008,"i",4],["H 21 - 1.00",1049,"i",4],[null,1082,"hr",4],
-  ["VENERDÌ",1119,"d",5],["Castlevania : Belmont’s Curse",1172,"i",5],["H 14 - 19",1218,"i",5],[null,1261,"hr",5],
-  ["SABATO - DOMENICA",1301,"d",6],["Pausa",1352,"i",6]
-];
+/* ====== PROGRAMMA (modificabile) ======
+   Una riga per giorno:  GIORNO | riga | riga | ... | orario
+   SABATO - DOMENICA vale per tutto il weekend. Le righe che iniziano con # sono note.
+   Nella storia automatica il testo arriva da programma.txt (window.PROGRAMMA_TXT). */
+var PROGRAMMA_DEFAULT = [
+  "LUNEDÌ | Valor Mortis | H 15 - 19",
+  "MARTEDÌ | Castlevania : Belmont’s Curse | H 22.30 - 1.00",
+  "MERCOLEDÌ | #NoSave Retrogaming | Finiamo Yoshi’s Island | e Valor Mortis | H 14 - 19",
+  "GIOVEDÌ | Final Fantasy Resonance | H 21 - 1.00",
+  "VENERDÌ | Castlevania : Belmont’s Curse | H 14 - 19",
+  "SABATO - DOMENICA | Pausa"
+].join("\n");
+
+function giornoNum(s){
+  var k=s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim();
+  var nomi=["lun","mar","mer","gio","ven","sab","dom"];
+  for(var i=0;i<7;i++) if(k.indexOf(nomi[i])===0) return i+1;
+  return 0;
+}
+function leggiProgramma(txt){
+  var giorni=[];
+  txt.split(/\r?\n/).forEach(function(l){
+    l=l.trim(); if(!l||l[0]==="#") return;
+    var p=l.split("|").map(function(x){return x.trim();}).filter(Boolean);
+    var n=giornoNum(p[0]||""); if(!n) return;
+    giorni.push({n:n, nome:p[0].toUpperCase(), righe:p.slice(1)});
+  });
+  giorni.sort(function(a,b){return a.n-b.n;});
+  return giorni;
+}
+/* impaginazione automatica dentro il pannello */
+var FS_DAY=47, FS_INFO=34;
+function impagina(giorni){
+  var TOP=372, BOTTOM=1436, DAY=48, INFO=42, PRE_HR=18, POST_HR=12;
+  var nat=0;
+  giorni.forEach(function(g,i){ nat+=DAY+g.righe.length*INFO; if(i<giorni.length-1) nat+=PRE_HR+POST_HR; });
+  var s=Math.min(1.25,(BOTTOM-TOP)/nat);
+  var fs=Math.max(.72,Math.min(1,s));
+  FS_DAY=Math.round(47*fs); FS_INFO=Math.round(34*fs);
+  var y=TOP+((BOTTOM-TOP)-nat*s)/2, rows=[];
+  giorni.forEach(function(g,i){
+    rows.push([g.nome, y+DAY*s/2, "d", g.n]); y+=DAY*s;
+    g.righe.forEach(function(r){ rows.push([r, y+INFO*s/2-2, "i", g.n]); y+=INFO*s; });
+    if(i<giorni.length-1){ y+=PRE_HR*s; rows.push([null,y,"hr",g.n]); y+=POST_HR*s; }
+  });
+  return rows;
+}
+var GIORNI_P = leggiProgramma(window.PROGRAMMA_TXT || PROGRAMMA_DEFAULT);
+var ROWS = impagina(GIORNI_P);
 var START = 2.1, STEP = 0.17;   // secondi: inizio scritte, ritardo tra una riga e l'altra
 
 /* parametri URL: ?loop=60 → ogni 60 s si spegne e si riaccende */
@@ -317,10 +358,14 @@ var LOOP = parseFloat(Q.get("loop") || "0");
 /* ?oggi=1..7 (1 = lunedì, 7 = domenica); se manca usa la data di oggi */
 var OGGI = parseInt(Q.get("oggi") || "0",10);
 if(!(OGGI>=1&&OGGI<=7)){ var dw=new Date().getDay(); OGGI = dw===0?7:dw; }
-var WEEKEND = OGGI>=6;
+/* gruppo di oggi: il giorno stesso, oppure (nel weekend) la riga SABATO/DOMENICA */
+var TODAY_GRP = OGGI;
+if(OGGI===7 && !GIORNI_P.some(function(g){return g.n===7;})) TODAY_GRP = 6;
+var GT = GIORNI_P.filter(function(g){return g.n===TODAY_GRP;})[0];
+var WEEKEND = OGGI>=6 && (!GT || /pausa/i.test(GT.righe.join(" ")));
 var STORY = Q.get("story")==="1"; if(STORY) document.body.classList.add("story");
 var H = STORY?1820:1536;
-var TODAY_GRP = WEEKEND?6:OGGI;
+
 
 function rng(seed){return function(){seed=(seed*16807)%2147483647;return (seed-1)/2147483646;}}
 
@@ -358,7 +403,9 @@ function build(){
     }
     var el=document.createElement("div");
     el.className="line "+(row[2]==="d"?"day":"info");
-    el.style.top=(row[1]-(row[2]==="d"?24:17))+"px";
+    var fsz=row[2]==="d"?FS_DAY:FS_INFO;
+    el.style.fontSize=fsz+"px";
+    el.style.top=(row[1]-fsz/2)+"px";
     var gp=(10+rr()*14).toFixed(1), gd=(t+3+rr()*12).toFixed(1);
     el.innerHTML='<span class="crt" style="animation-delay:'+t.toFixed(2)+'s"><span class="gl" style="--gp:'+gp+'s;--gd:'+gd+'s"></span></span>';
     el.querySelector(".gl").textContent=row[0];
@@ -369,6 +416,15 @@ function build(){
     }
     box.appendChild(el); t+=STEP;
   });
+  // le righe troppo lunghe si rimpiccioliscono per stare nel pannello
+  var fitW=function(){
+    rowsBox.querySelectorAll(".line").forEach(function(el){
+      var sp=el.querySelector(".gl"), f=parseFloat(el.style.fontSize);
+      while(sp.offsetWidth>740 && f>16){ f-=1; el.style.fontSize=f+"px"; el.style.top=(parseFloat(el.style.top)+.5)+"px"; }
+    });
+    window.__pronto=true;
+  };
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(fitW); else fitW();
   if(WEEKEND){
     var nw=document.createElement("div"); nw.className="nextweek";
     nw.innerHTML='<div class="band"></div><span class="crt"><span class="gl"><span class="t t1">SEE YOU</span><span class="t t2">NEXT WEEK</span></span></span>';
