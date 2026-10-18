@@ -1,0 +1,136 @@
+name: Storia programma settimanale
+
+on:
+  schedule:
+    # GitHub usa l'ora UTC: due avvii coprono ora legale e ora solare.
+    # Lo script parte solo in quello giusto e aspetta le 10:30 di Roma per pubblicare.
+    - cron: "40 7 * * *"
+    - cron: "40 8 * * *"
+  workflow_dispatch:
+    inputs:
+      oggi:
+        description: "Giorno da simulare (1 = lunedì … 7 = domenica). Vuoto = oggi"
+        required: false
+        default: ""
+      solo_telegram:
+        description: "Prova: pubblica solo su Telegram (niente Instagram)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: storia
+  cancel-in-progress: false
+
+jobs:
+  storia:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decidi se pubblicare oggi
+        id: decidi
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import os
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          ora = datetime.now(ZoneInfo("Europe/Rome"))
+          oggi = ora.strftime("%Y-%m-%d")
+          target = ora.replace(hour=10, minute=30, second=0, microsecond=0)
+          manca = (target - ora).total_seconds()
+          ultimo = open("stato/ultimo.txt").read().strip() if os.path.exists("stato/ultimo.txt") else ""
+          if os.environ["EVENTO"] == "workflow_dispatch":
+              vai, attesa = True, 0
+          else:
+              vai = ultimo != oggi and manca <= 75 * 60
+              attesa = int(max(0, manca))
+          print(f"vai={'si' if vai else 'no'}")
+          print(f"data={oggi}")
+          print(f"target={int(target.timestamp())}")
+          print(f"manuale={'si' if os.environ['EVENTO'] == 'workflow_dispatch' else 'no'}")
+          EOF
+          cat "$GITHUB_OUTPUT"
+        env:
+          EVENTO: ${{ github.event_name }}
+
+      - name: Prepara strumenti
+        if: steps.decidi.outputs.vai == 'si'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null
+          pip install -q playwright requests
+          python -m playwright install --with-deps chromium > /dev/null
+
+      - name: Crea il video
+        if: steps.decidi.outputs.vai == 'si'
+        run: python render.py "${{ github.event.inputs.oggi }}"
+
+      - name: Prepara la pagina pubblica del video
+        if: steps.decidi.outputs.vai == 'si'
+        run: |
+          mkdir -p site
+          cp out/storia.mp4 "site/storia-${{ steps.decidi.outputs.data }}-${{ github.run_id }}.mp4"
+          echo '<!doctype html><meta charset="utf-8"><title>Coach N Games</title><p>Programma settimanale</p>' > site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.decidi.outputs.vai == 'si'
+        with:
+          path: site
+
+      - name: Pubblica su GitHub Pages
+        id: pages
+        if: steps.decidi.outputs.vai == 'si'
+        uses: actions/deploy-pages@v4
+
+      - name: Aspetta le 10:30 e controlla il link
+        if: steps.decidi.outputs.vai == 'si'
+        run: |
+          URL="${{ steps.pages.outputs.page_url }}storia-${{ steps.decidi.outputs.data }}-${{ github.run_id }}.mp4"
+          echo "VIDEO_URL=$URL" >> "$GITHUB_ENV"
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" -I "$URL"); [ "$code" = "200" ] && break; sleep 10
+          done
+          echo "Link video: $URL ($code)"
+          if [ "${{ steps.decidi.outputs.manuale }}" = "no" ]; then
+            now=$(date +%s); target=${{ steps.decidi.outputs.target }}
+            if [ $target -gt $now ]; then echo "Attendo $((target-now)) s"; sleep $((target-now)); fi
+          fi
+
+      - name: Pubblica Instagram + Telegram
+        if: steps.decidi.outputs.vai == 'si'
+        run: python publish.py
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
+          TELEGRAM_THREAD: ${{ secrets.TELEGRAM_THREAD }}
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          SOLO_TELEGRAM: ${{ github.event.inputs.solo_telegram || 'false' }}
+
+      - name: Salva il token Instagram rinnovato
+        if: steps.decidi.outputs.vai == 'si' && hashFiles('out/nuovo_token.txt') != ''
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -n "$GH_TOKEN" ]; then
+            gh secret set IG_TOKEN --repo "${{ github.repository }}" < out/nuovo_token.txt && echo "Token salvato ✔"
+          else
+            echo "::warning::Token Instagram rinnovato ma non salvato: aggiungi il segreto GH_PAT"
+          fi
+          rm -f out/nuovo_token.txt
+
+      - name: Segna come pubblicato oggi
+        if: steps.decidi.outputs.vai == 'si' && steps.decidi.outputs.manuale == 'no'
+        run: |
+          echo "${{ steps.decidi.outputs.data }}" > stato/ultimo.txt
+          git config user.name "storia-bot"
+          git config user.email "storia-bot@users.noreply.github.com"
+          git add stato/ultimo.txt
+          git commit -m "Storia pubblicata ${{ steps.decidi.outputs.data }}" && git push
