@@ -1,0 +1,46 @@
+name: Reel Instagram su Telegram
+
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"   # ogni 15 minuti (GitHub a volte ritarda di qualche minuto)
+  workflow_dispatch:
+    inputs:
+      reinvia:
+        description: "Prova: rimanda su Telegram l'ultimo reel (anche se già mandato)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: reel
+  cancel-in-progress: false
+
+jobs:
+  reel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cerca reel nuovi e mandali su Telegram
+        run: |
+          pip install -q requests
+          python reel.py
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
+          REEL_THREAD: "141"
+          REEL_REINVIA: ${{ github.event.inputs.reinvia == 'true' && '1' || '' }}
+
+      - name: Ricorda i reel già mandati
+        if: ${{ !cancelled() }}
+        run: |
+          git config user.name "storia-bot"
+          git config user.email "storia-bot@users.noreply.github.com"
+          git add stato/reel_visti.txt 2>/dev/null || exit 0
+          git diff --cached --quiet && exit 0
+          git commit -q -m "Reel mandati su Telegram"
+          for i in 1 2 3; do git pull --rebase -q && git push -q && break; sleep 5; done

@@ -38,6 +38,11 @@ scritte e bordi più nitidi. Per questo la preparazione parte prima (avvii alle 
 Il token dura 60 giorni. `token_check.py` ricorda da quando è in uso (in `stato/token_ig.txt` c'è solo un'impronta, non il token)
 e dopo 50 giorni apre l'avviso "🔑 Token Instagram in scadenza" con le istruzioni. Quando cambi IG_TOKEN l'avviso si chiude da solo.
 
+## Reel di Instagram su Telegram
+Ogni 15 minuti `reel.py` guarda gli ultimi contenuti di @coach_n_games: ogni **reel nuovo** arriva nel gruppo Telegram,
+argomento **Clip e video** (numero 141), con il video, la descrizione e il bottone "▶️ Guarda su Instagram".
+I reel già mandati sono in `stato/reel_visti.txt`. Prova: Actions → "Reel Instagram su Telegram" → Run workflow → "rimanda l'ultimo reel".
+
 ## Se qualcosa non va
 GitHub manda una mail quando un'esecuzione fallisce. In Actions, il passo "Pubblica Instagram + Telegram" spiega il motivo (✘ …).
 - Il token Instagram dura 60 giorni: senza `GH_PAT` va rigenerato a mano prima della scadenza.
