@@ -8,6 +8,7 @@ from playwright.async_api import async_playwright
 
 FPS = 30
 DURATA = int(os.environ.get("DURATA", "14"))  # secondi
+SCALA = float(os.environ.get("SCALA", "2"))  # 2 = supersampling per più definizione
 QUI = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(QUI, "out")
 FRAMES = os.path.join(OUT, "frames")
@@ -20,7 +21,7 @@ async def main(oggi):
     url = "file://" + os.path.join(QUI, "programma.html") + f"?story=1&oggi={oggi}"
     async with async_playwright() as p:
         br = await p.chromium.launch()
-        pg = await br.new_page(viewport={"width": 1080, "height": 1920})
+        pg = await br.new_page(viewport={"width": 1080, "height": 1920}, device_scale_factor=SCALA)
         txt = open(os.path.join(QUI, "programma.txt"), encoding="utf-8").read()
         await pg.add_init_script("window.PROGRAMMA_TXT = " + json.dumps(txt) + ";")
         await pg.goto(url)
@@ -32,7 +33,7 @@ async def main(oggi):
                 f"document.getAnimations().forEach(a=>{{a.pause();a.currentTime={i * 1000 / FPS}}})")
             # due fotogrammi di attesa, altrimenti alcune righe restano vecchie
             await pg.evaluate("new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))")
-            await pg.screenshot(path=os.path.join(FRAMES, f"f{i:04d}.jpg"), type="jpeg", quality=94)
+            await pg.screenshot(path=os.path.join(FRAMES, f"f{i:04d}.jpg"), type="jpeg", quality=97)
         await br.close()
 
     video = os.path.join(OUT, "storia.mp4")
@@ -40,8 +41,11 @@ async def main(oggi):
         "ffmpeg", "-y", "-loglevel", "error",
         "-framerate", str(FPS), "-i", os.path.join(FRAMES, "f%04d.jpg"),
         "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
-        "-shortest", "-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p",
-        "-crf", "19", "-preset", "medium", "-c:a", "aac", "-b:a", "128k",
+        "-shortest",
+        # disegnato al doppio (2160x3840) e ridotto a 1080x1920: scritte e bordi più nitidi
+        "-vf", "scale=1080:1920:flags=lanczos+accurate_rnd+full_chroma_int,format=yuv420p",
+        "-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p",
+        "-crf", "14", "-preset", "slow", "-tune", "animation", "-b:v", "0", "-maxrate", "25M", "-bufsize", "50M", "-c:a", "aac", "-b:a", "128k",
         "-movflags", "+faststart", video], check=True)
     shutil.rmtree(FRAMES)
 

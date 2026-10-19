@@ -41,7 +41,7 @@ jobs:
           if [ "$giorni" -ge 5 ] && [ "$aperti" = "0" ]; then
             gh issue create --repo "${{ github.repository }}" \
               --title "📅 Programma della settimana nuova?" \
-              --body "Il programma non è stato cambiato da $giorni giorni.
+              --body "@CoachNGames il programma non è stato cambiato da $giorni giorni.
 
           Se la settimana nuova è diversa, aggiorna **programma.txt**:
           https://github.com/${{ github.repository }}/edit/main/programma.txt

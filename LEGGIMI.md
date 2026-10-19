@@ -30,6 +30,14 @@ Funziona a Mac spento.
 Promemoria: la domenica sera, se programma.txt non è cambiato da 5 giorni, GitHub apre un avviso
 "📅 Programma della settimana nuova?" (arriva per mail / notifica dell'app GitHub). Si chiude da solo quando salvi il programma.
 
+## Qualità del video
+Il video è disegnato al doppio (2160×3840) e ridotto a 1080×1920, il massimo che Instagram accetta per le storie:
+scritte e bordi più nitidi. Per questo la preparazione parte prima (avvii alle 06:40 e 07:40 UTC) e aspetta le 10:30.
+
+## Scadenza del token Instagram
+Il token dura 60 giorni. `token_check.py` ricorda da quando è in uso (in `stato/token_ig.txt` c'è solo un'impronta, non il token)
+e dopo 50 giorni apre l'avviso "🔑 Token Instagram in scadenza" con le istruzioni. Quando cambi IG_TOKEN l'avviso si chiude da solo.
+
 ## Se qualcosa non va
 GitHub manda una mail quando un'esecuzione fallisce. In Actions, il passo "Pubblica Instagram + Telegram" spiega il motivo (✘ …).
 - Il token Instagram dura 60 giorni: senza `GH_PAT` va rigenerato a mano prima della scadenza.

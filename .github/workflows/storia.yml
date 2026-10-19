@@ -2,22 +2,27 @@ name: Storia programma settimanale
 
 on:
   schedule:
-    # GitHub usa l'ora UTC: due avvii coprono ora legale e ora solare.
+    # GitHub usa l'ora UTC (e spesso parte in ritardo): due avvii coprono ora legale e ora solare.
     # Lo script parte solo in quello giusto e aspetta le 10:30 di Roma per pubblicare.
+    - cron: "40 6 * * *"
     - cron: "40 7 * * *"
-    - cron: "40 8 * * *"
   workflow_dispatch:
     inputs:
       oggi:
         description: "Giorno da simulare (1 = lunedì … 7 = domenica). Vuoto = oggi"
         required: false
         default: ""
+      solo_video:
+        description: "Prova: crea solo il video, senza pubblicare niente"
+        type: boolean
+        default: false
       solo_telegram:
         description: "Prova: pubblica solo su Telegram (niente Instagram)"
         type: boolean
         default: false
 
 permissions:
+  issues: write
   contents: write
   pages: write
   id-token: write
@@ -29,7 +34,7 @@ concurrency:
 jobs:
   storia:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 200
     environment:
       name: github-pages
       url: ${{ steps.pages.outputs.page_url }}
@@ -51,7 +56,7 @@ jobs:
           if os.environ["EVENTO"] == "workflow_dispatch":
               vai, attesa = True, 0
           else:
-              vai = ultimo != oggi and manca <= 75 * 60
+              vai = ultimo != oggi and manca <= 135 * 60
               attesa = int(max(0, manca))
           print(f"vai={'si' if vai else 'no'}")
           print(f"data={oggi}")
@@ -105,7 +110,8 @@ jobs:
           fi
 
       - name: Pubblica Instagram + Telegram
-        if: steps.decidi.outputs.vai == 'si'
+        id: pubblica
+        if: steps.decidi.outputs.vai == 'si' && github.event.inputs.solo_video != 'true'
         run: python publish.py
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
@@ -126,11 +132,23 @@ jobs:
           fi
           rm -f out/nuovo_token.txt
 
+      - name: Controlla la scadenza del token Instagram
+        if: ${{ !cancelled() && steps.decidi.outputs.vai == 'si' }}
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: python token_check.py
+
       - name: Segna come pubblicato oggi
-        if: steps.decidi.outputs.vai == 'si' && steps.decidi.outputs.manuale == 'no'
+        # anche se Instagram fallisce: così il secondo avvio non rimanda un doppione su Telegram
+        if: ${{ !cancelled() && steps.decidi.outputs.vai == 'si' && steps.pubblica.outcome != 'skipped' }}
         run: |
-          echo "${{ steps.decidi.outputs.data }}" > stato/ultimo.txt
+          if [ "${{ steps.decidi.outputs.manuale }}" = "no" ]; then
+            echo "${{ steps.decidi.outputs.data }}" > stato/ultimo.txt
+          fi
           git config user.name "storia-bot"
           git config user.email "storia-bot@users.noreply.github.com"
-          git add stato/ultimo.txt
-          git commit -m "Storia pubblicata ${{ steps.decidi.outputs.data }}" && git push
+          git add stato/
+          git diff --cached --quiet && exit 0
+          git commit -m "Stato ${{ steps.decidi.outputs.data }}"
+          git pull --rebase -q && git push
