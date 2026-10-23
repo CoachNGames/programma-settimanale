@@ -40,6 +40,8 @@ jobs:
       url: ${{ steps.pages.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main   # la versione più recente, non quella del momento in cui è partito il cron
 
       - name: Decidi se pubblicare oggi
         id: decidi
@@ -52,7 +54,10 @@ jobs:
           oggi = ora.strftime("%Y-%m-%d")
           target = ora.replace(hour=10, minute=30, second=0, microsecond=0)
           manca = (target - ora).total_seconds()
-          ultimo = open("stato/ultimo.txt").read().strip() if os.path.exists("stato/ultimo.txt") else ""
+          import subprocess
+          subprocess.run(["git", "fetch", "-q", "origin", "main"], check=False)
+          r = subprocess.run(["git", "show", "origin/main:stato/ultimo.txt"], capture_output=True, text=True)
+          ultimo = r.stdout.strip()
           if os.environ["EVENTO"] == "workflow_dispatch":
               vai, attesa = True, 0
           else:
@@ -96,6 +101,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
       - name: Aspetta le 10:30 e controlla il link
+        id: aspetta
         if: steps.decidi.outputs.vai == 'si'
         run: |
           URL="${{ steps.pages.outputs.page_url }}storia-${{ steps.decidi.outputs.data }}-${{ github.run_id }}.mp4"
@@ -108,10 +114,18 @@ jobs:
             now=$(date +%s); target=${{ steps.decidi.outputs.target }}
             if [ $target -gt $now ]; then echo "Attendo $((target-now)) s"; sleep $((target-now)); fi
           fi
+          # ultimo controllo dopo l'attesa: se un altro avvio ha già pubblicato oggi, non pubblico di nuovo
+          if [ "${{ steps.decidi.outputs.manuale }}" = "no" ]; then
+            git fetch -q origin main
+            if [ "$(git show origin/main:stato/ultimo.txt 2>/dev/null | tr -d '[:space:]')" = "${{ steps.decidi.outputs.data }}" ]; then
+              echo "Già pubblicata oggi da un altro avvio: salto"
+              echo "gia=si" >> "$GITHUB_OUTPUT"
+            fi
+          fi
 
       - name: Pubblica Instagram + Telegram
         id: pubblica
-        if: steps.decidi.outputs.vai == 'si' && github.event.inputs.solo_video != 'true'
+        if: steps.decidi.outputs.vai == 'si' && github.event.inputs.solo_video != 'true' && steps.aspetta.outputs.gia != 'si'
         run: python publish.py
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
