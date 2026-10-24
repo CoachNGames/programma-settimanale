@@ -34,6 +34,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # pausa (stato/pausa.txt): niente promemoria la domenica prima e durante la pausa,
+          # sì l'ultimo giorno (la domenica prima della ripartenza)
+          if [ -f stato/pausa.txt ] && python3 - <<'PY'
+          import sys, datetime as dt
+          from zoneinfo import ZoneInfo
+          oggi = dt.datetime.now(ZoneInfo("Europe/Rome")).date()
+          for r in open("stato/pausa.txt"):
+              p = r.split("#")[0].split()
+              if len(p) == 2:
+                  a, b = dt.date.fromisoformat(p[0]), dt.date.fromisoformat(p[1])
+                  if a - dt.timedelta(days=7) <= oggi < b:
+                      sys.exit(0)
+          sys.exit(1)
+          PY
+          then
+            echo "In pausa: niente promemoria"; exit 0
+          fi
           ultima=$(git log -1 --format=%ct -- programma.txt)
           giorni=$(( ( $(date +%s) - ultima ) / 86400 ))
           echo "programma.txt modificato $giorni giorni fa"

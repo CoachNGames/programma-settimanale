@@ -62,6 +62,13 @@ jobs:
               vai, attesa = True, 0
           else:
               vai = ultimo != oggi and manca <= 135 * 60
+              # pausa (ferie): stato/pausa.txt = "AAAA-MM-GG AAAA-MM-GG" (primo e ultimo giorno senza storia)
+              if os.path.exists("stato/pausa.txt"):
+                  for riga in open("stato/pausa.txt"):
+                      p = riga.split("#")[0].split()
+                      if len(p) == 2 and p[0] <= oggi <= p[1]:
+                          vai = False
+                          import sys; print(f"In pausa dal {p[0]} al {p[1]}: oggi niente storia", file=sys.stderr)
               attesa = int(max(0, manca))
           print(f"vai={'si' if vai else 'no'}")
           print(f"data={oggi}")

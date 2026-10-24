@@ -30,6 +30,11 @@ Funziona a Mac spento.
 Promemoria: la domenica sera, se programma.txt non è cambiato da 5 giorni, GitHub apre un avviso
 "📅 Programma della settimana nuova?" (arriva per mail / notifica dell'app GitHub). Si chiude da solo quando salvi il programma.
 
+## Pausa (ferie)
+In `stato/pausa.txt` una riga `AAAA-MM-GG AAAA-MM-GG` = primo e ultimo giorno senza storia automatica.
+In quei giorni niente storia e niente promemoria del programma (il promemoria torna l'ultimo giorno di pausa).
+Le prove a mano funzionano lo stesso. A pausa finita la riga si può lasciare o cancellare.
+
 ## Qualità del video
 Il video è disegnato al doppio (2160×3840) e ridotto a 1080×1920, il massimo che Instagram accetta per le storie:
 scritte e bordi più nitidi. Per questo la preparazione parte prima (avvii alle 06:40 e 07:40 UTC) e aspetta le 10:30.
