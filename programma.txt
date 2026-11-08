@@ -6,9 +6,10 @@
 # - le righe che iniziano con # sono note e non compaiono
 # Dopo il salvataggio, dalla mattina dopo la storia usa il programma nuovo.
 
-LUNEDÌ | Final Fantasy Resonance | H 15 - 19
-MARTEDÌ | Castlevania : Belmont’s Curse | H 22.30 - 1.00
-MERCOLEDÌ | #NoSave Retrogaming | Finiamo Yoshi’s Island | e si prosegue Final Fantasy Resonance| H 14 - 19
-GIOVEDÌ | THE LEGEND OF ZELDA - OCARINA OF TIME REMAKE | H 21 - 1.00
-VENERDÌ | Final Fantasy Resonance | H 14 - 19
-SABATO - DOMENICA | Pausa
+LUNEDÌ | Castlevania Belmont's course / Zelda Ocarina of time | H 15 - 19
+MARTEDÌ | Zelda Ocarina of time | H 22.30 - 1.00
+MERCOLEDÌ | #NoSave Retrogaming | Finiamo Yoshi’s Island |Final Fantasy Resonance | Zelda Ocarina of time | H 14.30 - 00.00
+GIOVEDÌ | Castlevania belmont's curse / Final Fantasy Resonance  | H 21 - 1.00
+VENERDÌ | Zelda Ocarina of time | H 14 - 19
+SABATO | Final Fantasy Resonance / Zelda Ocarina of time 14.30 - 19
+DOMENICA | Pausa
