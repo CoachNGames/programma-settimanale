@@ -2,10 +2,19 @@ name: Storia programma settimanale
 
 on:
   schedule:
-    # GitHub usa l'ora UTC (e spesso parte in ritardo): due avvii coprono ora legale e ora solare.
-    # Lo script parte solo in quello giusto e aspetta le 10:30 di Roma per pubblicare.
+    # GitHub usa l'ora UTC e a volte parte con ore di ritardo (o salta un orario):
+    # più avvii di riserva; pubblica solo il primo utile, gli altri vedono stato/ultimo.txt e si fermano.
+    # Se si è in ritardo pubblica appena può (entro le 19:00 di Roma), senza aspettare.
     - cron: "40 6 * * *"
     - cron: "40 7 * * *"
+    - cron: "15 8 * * *"
+    - cron: "55 8 * * *"
+    - cron: "45 9 * * *"
+    - cron: "45 11 * * *"
+    - cron: "45 14 * * *"
+  push:
+    # avvio d'emergenza: modificare stato/avvia.txt fa partire la storia di oggi (se non è già uscita)
+    paths: ["stato/avvia.txt"]
   workflow_dispatch:
     inputs:
       oggi:
@@ -61,7 +70,12 @@ jobs:
           if os.environ["EVENTO"] == "workflow_dispatch":
               vai, attesa = True, 0
           else:
-              vai = ultimo != oggi and manca <= 135 * 60
+              # avvio programmato: da 135 minuti prima delle 10:30 fino alle 19:00; avvio d'emergenza (push): subito
+              tardi = ora.hour >= 19
+              if os.environ["EVENTO"] == "push":
+                  vai = ultimo != oggi and not tardi
+              else:
+                  vai = ultimo != oggi and manca <= 135 * 60 and not tardi
               # pausa (ferie): stato/pausa.txt = "AAAA-MM-GG AAAA-MM-GG" (primo e ultimo giorno senza storia)
               if os.path.exists("stato/pausa.txt"):
                   for riga in open("stato/pausa.txt"):
