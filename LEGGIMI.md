@@ -1,6 +1,6 @@
 # Storia "Programma settimanale" automatica
 
-Ogni mattina alle **10:30 (ora di Roma)** GitHub crea il video del giorno e lo pubblica:
+Ogni mattina alle **11:00 (ora di Roma)** GitHub crea il video del giorno e lo pubblica:
 - nelle **storie Instagram** di @coach_n_games
 - nel **gruppo Telegram**, argomento "When sono in Live e Dove"
 
@@ -43,7 +43,7 @@ Le prove a mano funzionano lo stesso. A pausa finita la riga si può lasciare o 
 
 ## Qualità del video
 Il video è disegnato al doppio (2160×3840) e ridotto a 1080×1920, il massimo che Instagram accetta per le storie:
-scritte e bordi più nitidi. Per questo la preparazione parte prima (avvii alle 06:40 e 07:40 UTC) e aspetta le 10:30.
+scritte e bordi più nitidi. Per questo la preparazione parte prima (primi avvii alle 07:10 e 08:10 UTC) e aspetta le 11:00.
 
 ## Scadenza del token Instagram
 Il token dura 60 giorni. `token_check.py` ricorda da quando è in uso (in `stato/token_ig.txt` c'è solo un'impronta, non il token)

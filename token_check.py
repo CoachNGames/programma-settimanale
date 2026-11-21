@@ -47,7 +47,7 @@ print(f"Token Instagram in uso da {eta} giorni, scade circa il {scade:%d/%m/%Y}"
 
 if eta >= AVVISO_DOPO and not avvisi_aperti():
     corpo = f"""@CoachNGames il token Instagram scade circa il **{scade:%d/%m/%Y}** (dura 60 giorni).
-Dopo quella data la storia delle 10:30 smette di uscire su Instagram (Telegram continua).
+Dopo quella data la storia delle 11:00 smette di uscire su Instagram (Telegram continua).
 
 **Come rinnovarlo (5 minuti):**
 1. developers.facebook.com → app **Overlay Follower CRT** → Casi d'uso → **Configurazione dell'API con Instagram Login**
