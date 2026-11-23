@@ -71,11 +71,12 @@ jobs:
               vai, attesa = True, 0
           else:
               # avvio programmato: da 135 minuti prima delle 11:00 fino alle 19:00; avvio d'emergenza (push): subito
-              tardi = ora.hour >= 19
+              # avvio d'emergenza/avvio giornaliero (push): fino alle 19:00;
+              # avvio programmato di GitHub (spesso in ritardo di ore): solo fino alle 13:00
               if os.environ["EVENTO"] == "push":
-                  vai = ultimo != oggi and not tardi
+                  vai = ultimo != oggi and ora.hour < 19
               else:
-                  vai = ultimo != oggi and manca <= 135 * 60 and not tardi
+                  vai = ultimo != oggi and manca <= 135 * 60 and ora.hour < 13
               # pausa (ferie): stato/pausa.txt = "AAAA-MM-GG AAAA-MM-GG" (primo e ultimo giorno senza storia)
               if os.path.exists("stato/pausa.txt"):
                   for riga in open("stato/pausa.txt"):
