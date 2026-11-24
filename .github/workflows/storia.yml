@@ -50,7 +50,7 @@ jobs:
     timeout-minutes: 200
     environment:
       name: github-pages
-      url: ${{ steps.pages.outputs.page_url }}
+      url: https://coachngames.github.io/programma-settimanale/
     steps:
       - uses: actions/checkout@v4
         with:
@@ -122,16 +122,49 @@ jobs:
         with:
           path: site
 
+      # GitHub Pages a volte risponde "Deployment failed, try again later": 3 tentativi
       - name: Pubblica su GitHub Pages
         id: pages
         if: steps.decidi.outputs.vai == 'si'
+        continue-on-error: true
         uses: actions/deploy-pages@v4
+
+      - name: Attendi prima di riprovare GitHub Pages
+        if: steps.decidi.outputs.vai == 'si' && steps.pages.outcome == 'failure'
+        run: sleep 90
+
+      - name: Pubblica su GitHub Pages (2° tentativo)
+        id: pages2
+        if: steps.decidi.outputs.vai == 'si' && steps.pages.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Attendi prima dell'ultimo tentativo
+        if: steps.decidi.outputs.vai == 'si' && steps.pages2.outcome == 'failure'
+        run: sleep 180
+
+      - name: Pubblica su GitHub Pages (3° tentativo)
+        id: pages3
+        if: steps.decidi.outputs.vai == 'si' && steps.pages2.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Esito GitHub Pages
+        id: pagesok
+        if: steps.decidi.outputs.vai == 'si'
+        run: |
+          if [ "${{ steps.pages.outcome }}" = "success" ] || [ "${{ steps.pages2.outcome }}" = "success" ] || [ "${{ steps.pages3.outcome }}" = "success" ]; then
+            echo "ok=si" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::GitHub Pages non disponibile: pubblico solo su Telegram (Instagram ha bisogno del link)"
+            echo "ok=no" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Aspetta le 11:00 e controlla il link
         id: aspetta
         if: steps.decidi.outputs.vai == 'si'
         run: |
-          URL="${{ steps.pages.outputs.page_url }}storia-${{ steps.decidi.outputs.data }}-${{ github.run_id }}.mp4"
+          URL="https://coachngames.github.io/programma-settimanale/storia-${{ steps.decidi.outputs.data }}-${{ github.run_id }}.mp4"
           echo "VIDEO_URL=$URL" >> "$GITHUB_ENV"
           for i in $(seq 1 30); do
             code=$(curl -s -o /dev/null -w "%{http_code}" -I "$URL"); [ "$code" = "200" ] && break; sleep 10
@@ -159,7 +192,7 @@ jobs:
           TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
           TELEGRAM_THREAD: ${{ secrets.TELEGRAM_THREAD }}
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
-          SOLO_TELEGRAM: ${{ github.event.inputs.solo_telegram || 'false' }}
+          SOLO_TELEGRAM: ${{ (steps.pagesok.outputs.ok == 'no' && 'true') || github.event.inputs.solo_telegram || 'false' }}
 
       - name: Salva il token Instagram rinnovato
         if: steps.decidi.outputs.vai == 'si' && hashFiles('out/nuovo_token.txt') != ''
